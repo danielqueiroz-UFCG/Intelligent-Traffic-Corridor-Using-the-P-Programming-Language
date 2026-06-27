@@ -990,3 +990,286 @@ machine TrafficController
     on EnableGreenWave goto GreenWave;
 
     on DisableGreenWave goto Running;
+
+        ///////////////////////////////////////////////////////////
+    // SMART SCHEDULER
+    ///////////////////////////////////////////////////////////
+
+    state SmartScheduler
+    {
+
+        entry
+        {
+
+            print "===================================";
+            print "SMART SCHEDULER";
+            print "===================================";
+
+            UpdateStatistics();
+
+            CalculateGreenTime();
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= 5)
+            {
+
+                goto Synchronization;
+
+            }
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // SYNCHRONIZATION
+    ///////////////////////////////////////////////////////////
+
+    state Synchronization
+    {
+
+        entry
+        {
+
+            print "Synchronizing Intersections";
+
+            if(phase == 0)
+            {
+
+                send I1, MainGreen;
+                send I2, CrossGreen;
+
+            }
+            else
+            {
+
+                send I1, CrossGreen;
+                send I2, MainGreen;
+
+            }
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= 3)
+            {
+
+                goto PedestrianControl;
+
+            }
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // PEDESTRIAN CONTROL
+    ///////////////////////////////////////////////////////////
+
+    state PedestrianControl
+    {
+
+        entry
+        {
+
+            print "Pedestrian Phase";
+
+            pedestrianCounter = pedestrianCounter + 1;
+
+            if(phase == 0)
+            {
+
+                send I1, Walk;
+                send I2, DontWalk;
+
+            }
+            else
+            {
+
+                send I1, DontWalk;
+                send I2, Walk;
+
+            }
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= pedestrianTime)
+            {
+
+                goto Running;
+
+            }
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // LOGGING
+    ///////////////////////////////////////////////////////////
+
+    fun LogStatus()
+    {
+
+        print "-------------";
+
+        print "Ticks";
+        print totalTicks;
+
+        print "Phase";
+        print phase;
+
+        print "Cycles";
+        print cycleCounter;
+
+        print "North Queue";
+        print northQueue;
+
+        print "South Queue";
+        print southQueue;
+
+        print "East Queue";
+        print eastQueue;
+
+        print "West Queue";
+        print westQueue;
+
+        print "Emergency Count";
+        print emergencyCounter;
+
+        print "Bus Count";
+        print busCounter;
+
+        print "-------------";
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // ASSERTIONS
+    ///////////////////////////////////////////////////////////
+
+    fun VerifySafety()
+    {
+
+        assert(!(phase == 0 &&
+                 emergencyMode &&
+                 maintenanceMode));
+
+        assert(mainGreenTime > 0);
+
+        assert(crossGreenTime > 0);
+
+        assert(yellowTime > 0);
+
+        assert(pedestrianTime > 0);
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // PERIODIC TASKS
+    ///////////////////////////////////////////////////////////
+
+    on Tick do
+    {
+
+        VerifySafety();
+
+        if(totalTicks % 20 == 0)
+        {
+
+            UpdateStatistics();
+
+        }
+
+        if(totalTicks % 50 == 0)
+        {
+
+            LogStatus();
+
+        }
+
+        if(totalTicks % 100 == 0)
+        {
+
+            CalculateGreenTime();
+
+        }
+
+        if(totalTicks % 250 == 0)
+        {
+
+            goto SmartScheduler;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // RESET
+    ///////////////////////////////////////////////////////////
+
+    fun ResetController()
+    {
+
+        phase = 0;
+
+        cycleCounter = 0;
+
+        northQueue = 0;
+        southQueue = 0;
+        eastQueue = 0;
+        westQueue = 0;
+
+        emergencyMode = false;
+        busPriority = false;
+        maintenanceMode = false;
+        nightMode = false;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // SHUTDOWN
+    ///////////////////////////////////////////////////////////
+
+    state Shutdown
+    {
+
+        entry
+        {
+
+            print "Stopping Traffic Controller";
+
+            running = false;
+
+            send I1, MainRed;
+            send I2, MainRed;
+
+            send I1, DontWalk;
+            send I2, DontWalk;
+
+        }
+
+    }
+
+}
