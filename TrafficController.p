@@ -656,3 +656,337 @@ machine TrafficController
         westQueue = westQueue + 1;
 
     }
+
+        ///////////////////////////////////////////////////////////
+    // ADAPTIVE TRAFFIC CONTROL
+    ///////////////////////////////////////////////////////////
+
+    state AdaptiveControl
+    {
+
+        entry
+        {
+
+            print "===================================";
+            print "ADAPTIVE CONTROL";
+            print "===================================";
+
+            cycleCounter = 0;
+
+            averageNorth = (averageNorth + northQueue) / 2;
+            averageSouth = (averageSouth + southQueue) / 2;
+            averageEast  = (averageEast  + eastQueue ) / 2;
+            averageWest  = (averageWest  + westQueue ) / 2;
+
+            if((northQueue + southQueue) >
+               (eastQueue + westQueue))
+            {
+
+                mainGreenTime = 45;
+                crossGreenTime = 20;
+
+            }
+            else
+            {
+
+                mainGreenTime = 20;
+                crossGreenTime = 45;
+
+            }
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= 5)
+            {
+
+                goto Running;
+
+            }
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // TRAFFIC MONITOR
+    ///////////////////////////////////////////////////////////
+
+    state Monitor
+    {
+
+        entry
+        {
+
+            print "Traffic Monitor";
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+            if(northQueue > 30)
+            {
+
+                print "North Congestion";
+
+            }
+
+            if(southQueue > 30)
+            {
+
+                print "South Congestion";
+
+            }
+
+            if(eastQueue > 30)
+            {
+
+                print "East Congestion";
+
+            }
+
+            if(westQueue > 30)
+            {
+
+                print "West Congestion";
+
+            }
+
+        }
+
+        on ReturnController goto Running;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // FAILURE MODE
+    ///////////////////////////////////////////////////////////
+
+    state FailureMode
+    {
+
+        entry
+        {
+
+            print "System Failure";
+
+            running = false;
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+        }
+
+        on Recover goto Recovery;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // RECOVERY
+    ///////////////////////////////////////////////////////////
+
+    state Recovery
+    {
+
+        entry
+        {
+
+            print "Recovering";
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= 10)
+            {
+
+                running = true;
+
+                goto Running;
+
+            }
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // UPDATE STATISTICS
+    ///////////////////////////////////////////////////////////
+
+    fun UpdateStatistics()
+    {
+
+        averageNorth =
+            (averageNorth + northQueue) / 2;
+
+        averageSouth =
+            (averageSouth + southQueue) / 2;
+
+        averageEast =
+            (averageEast + eastQueue) / 2;
+
+        averageWest =
+            (averageWest + westQueue) / 2;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // RESET QUEUES
+    ///////////////////////////////////////////////////////////
+
+    fun ResetQueues()
+    {
+
+        northQueue = 0;
+
+        southQueue = 0;
+
+        eastQueue = 0;
+
+        westQueue = 0;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // CALCULATE GREEN TIMES
+    ///////////////////////////////////////////////////////////
+
+    fun CalculateGreenTime()
+    {
+
+        if(northQueue > 40)
+        {
+
+            mainGreenTime = 60;
+
+        }
+
+        if(southQueue > 40)
+        {
+
+            mainGreenTime = 60;
+
+        }
+
+        if(eastQueue > 40)
+        {
+
+            crossGreenTime = 60;
+
+        }
+
+        if(westQueue > 40)
+        {
+
+            crossGreenTime = 60;
+
+        }
+
+        if(northQueue < 10 &&
+           southQueue < 10)
+        {
+
+            mainGreenTime = 20;
+
+        }
+
+        if(eastQueue < 10 &&
+           westQueue < 10)
+        {
+
+            crossGreenTime = 20;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // EMERGENCY EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on AmbulanceDetected do
+    {
+
+        ambulanceDetected = true;
+
+        emergencyCounter = emergencyCounter + 1;
+
+        goto Emergency;
+
+    }
+
+    on PoliceDetected do
+    {
+
+        policeDetected = true;
+
+        emergencyCounter = emergencyCounter + 1;
+
+        goto Emergency;
+
+    }
+
+    on FireTruckDetected do
+    {
+
+        firefighterDetected = true;
+
+        emergencyCounter = emergencyCounter + 1;
+
+        goto Emergency;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // BUS EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on BusDetected do
+    {
+
+        busCounter = busCounter + 1;
+
+        goto BusPriority;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // NIGHT EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on EnableNightMode goto Night;
+
+    on DisableNightMode goto Running;
+
+    ///////////////////////////////////////////////////////////
+    // MAINTENANCE EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on EnableMaintenance goto Maintenance;
+
+    on DisableMaintenance goto Running;
+
+    ///////////////////////////////////////////////////////////
+    // GREEN WAVE EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on EnableGreenWave goto GreenWave;
+
+    on DisableGreenWave goto Running;
