@@ -1,0 +1,2 @@
+# Intelligent-Traffic-Corridor-Using-the-P-Programming-Language
+This software models an intelligent traffic corridor using the P language. The system manages two synchronized intersections with adaptive control for public transport, school buses, pedestrians, and emergencies. Verified via PChecker, the controller integrates with C++ for real-time visualization, ensuring zero deadlocks or safety failures.
