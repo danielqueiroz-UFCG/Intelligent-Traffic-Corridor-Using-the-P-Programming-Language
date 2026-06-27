@@ -1,3 +1,9 @@
+//=====================================================
+// Events.p
+//=====================================================
+
+event Tick;
+
 event MainGreen;
 event MainYellow;
 event MainRed;
@@ -9,10 +15,16 @@ event CrossRed;
 event Walk;
 event DontWalk;
 
-event Tick;
-
-event Emergency;
-
+event EmergencyStart;
 event EmergencyEnd;
 
+event AmbulanceDetected;
+event PoliceDetected;
+event FireTruckDetected;
+
 event BusDetected;
+
+event GreenWaveEnable;
+event GreenWaveDisable;
+
+event PhaseFinished;
