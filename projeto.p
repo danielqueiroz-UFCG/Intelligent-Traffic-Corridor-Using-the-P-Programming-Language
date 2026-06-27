@@ -25,7 +25,9 @@ event TurnGreenB;
 event TurnRedB;
 
 // ======================================================
+//
 // Eventos de ambiente e sensores
+//
 // ======================================================
 
 event PeakHour;          // periodo 06h00 ate 22h00
@@ -48,7 +50,9 @@ event AccidentResolved;
 event PedestrianRescued;
 
 // ======================================================
+//
 // Placa digital e onda verde
+//
 // ======================================================
 
 event Speed50;
@@ -70,6 +74,7 @@ event ForbidTurns06To22;
 
 // ======================================================
 // Eventos internos do controlador
+//
 // ======================================================
 
 event Start;
@@ -87,7 +92,9 @@ event ApplyTurnPolicyAllowed;
 event ApplyTurnPolicyForbidden;
 
 // ======================================================
+//
 // Eventos de anuncio para observadores
+//
 // ======================================================
 
 event I1MainGreen;
@@ -273,7 +280,9 @@ machine DigitalSign {
 }
 
 // ======================================================
+//
 // Equipes de emergencia para acidentes com pedestre
+// Bombeiros, Policia, Samu, Corpo de Bombeiros
 // ======================================================
 
 machine AmbulanceResponder {
@@ -377,6 +386,11 @@ machine Controller {
     var ltAAllowed : bool;
     var ltBAllowed : bool;
 
+    // ======================================================
+    // SISTEMA DE TIMESTAMP PARA ANIMAÇÃO C++
+    // ======================================================
+    var simulation_time : int;
+
     start state Init {
         entry {
             i1MainEast = new TrafficLightI1Main();
@@ -419,6 +433,9 @@ machine Controller {
             ltAAllowed = false;
             ltBAllowed = false;
 
+            // Inicializar timestamp
+            simulation_time = 0;
+
             raise Start;
         }
 
@@ -450,51 +467,65 @@ machine Controller {
             send i2CrossNorth, TurnRedB;
             send i2CrossSouth, TurnRedB;
 
-            announce I1CrossRed;
-            announce I2CrossRed;
-            announce RedB;
-            announce I1MainGreen;
-            announce I2MainGreen;
-            announce GreenA;
+            send i1PedAcrossMainNorth, DontWalk;
+            send i1PedAcrossMainSouth, DontWalk;
+            send i2PedAcrossMainNorth, DontWalk;
+            send i2PedAcrossMainSouth, DontWalk;
 
-            send this, ApplyPedestriansForMainGreen;
+            // ======================================================
+            // SAÍDA PARA ANIMADOR C++
+            // ======================================================
+            announce("TurnGreenI1Main:1:" + to_string(simulation_time));
+            announce("TurnRedI1Cross:1:" + to_string(simulation_time));
+            announce("TurnGreenI2Main:2:" + to_string(simulation_time));
+            announce("TurnRedI2Cross:2:" + to_string(simulation_time));
+            announce("DontWalk:1:" + to_string(simulation_time));
+            announce("DontWalk:2:" + to_string(simulation_time));
         }
 
         on ApplyCrossGreen do {
-            phase = 2;
+            // Onda verde nas vias transversais dos dois cruzamentos.
+            phase = 1;
 
-            send i1MainEast, TurnRedI1Main;
-            send i1MainWest, TurnRedI1Main;
             send i1CrossNorth, TurnGreenI1Cross;
             send i1CrossSouth, TurnGreenI1Cross;
+            send i1MainEast, TurnRedI1Main;
+            send i1MainWest, TurnRedI1Main;
 
-            send i2MainEast, TurnRedI2Main;
-            send i2MainWest, TurnRedI2Main;
             send i2CrossNorth, TurnGreenI2Cross;
             send i2CrossSouth, TurnGreenI2Cross;
-
-            send i1MainEast, TurnRedA;
-            send i1MainWest, TurnRedA;
-            send i2MainEast, TurnRedA;
-            send i2MainWest, TurnRedA;
+            send i2MainEast, TurnRedI2Main;
+            send i2MainWest, TurnRedI2Main;
 
             send i1CrossNorth, TurnGreenB;
             send i1CrossSouth, TurnGreenB;
             send i2CrossNorth, TurnGreenB;
             send i2CrossSouth, TurnGreenB;
 
-            announce I1MainRed;
-            announce I1CrossGreen;
-            announce I2MainRed;
-            announce I2CrossGreen;
-            announce RedA;
-            announce GreenB;
+            send i1MainEast, TurnRedA;
+            send i1MainWest, TurnRedA;
+            send i2MainEast, TurnRedA;
+            send i2MainWest, TurnRedA;
 
-            send this, ApplyPedestriansForCrossGreen;
+            send i1PedAcrossCrossEast, Walk;
+            send i1PedAcrossCrossWest, Walk;
+            send i2PedAcrossCrossEast, Walk;
+            send i2PedAcrossCrossWest, Walk;
+
+            // ======================================================
+            // SAÍDA PARA ANIMADOR C++
+            // ======================================================
+            announce("TurnRedI1Main:1:" + to_string(simulation_time));
+            announce("TurnGreenI1Cross:1:" + to_string(simulation_time));
+            announce("TurnRedI2Main:2:" + to_string(simulation_time));
+            announce("TurnGreenI2Cross:2:" + to_string(simulation_time));
+            announce("Walk:1:" + to_string(simulation_time));
+            announce("Walk:2:" + to_string(simulation_time));
         }
 
         on ApplyAllRed do {
-            phase = 1;
+            // Todos os semaforos em vermelho.
+            phase = 2;
 
             send i1MainEast, TurnRedI1Main;
             send i1MainWest, TurnRedI1Main;
@@ -508,48 +539,53 @@ machine Controller {
 
             send i1MainEast, TurnRedA;
             send i1MainWest, TurnRedA;
-            send i2MainEast, TurnRedA;
-            send i2MainWest, TurnRedA;
-
             send i1CrossNorth, TurnRedB;
             send i1CrossSouth, TurnRedB;
+
+            send i2MainEast, TurnRedA;
+            send i2MainWest, TurnRedA;
             send i2CrossNorth, TurnRedB;
             send i2CrossSouth, TurnRedB;
 
-            announce I1MainRed;
-            announce I1CrossRed;
-            announce I2MainRed;
-            announce I2CrossRed;
-            announce RedA;
-            announce RedB;
-
-            send this, ApplyAllPedestriansStop;
-        }
-
-        on ApplyPedestriansForMainGreen do {
-            // Main verde: pedestres que cruzam a via transversal podem andar.
             send i1PedAcrossMainNorth, DontWalk;
             send i1PedAcrossMainSouth, DontWalk;
-            send i1PedAcrossCrossEast, Walk;
-            send i1PedAcrossCrossWest, Walk;
-
-            send i2PedAcrossMainNorth, DontWalk;
-            send i2PedAcrossMainSouth, DontWalk;
-            send i2PedAcrossCrossEast, Walk;
-            send i2PedAcrossCrossWest, Walk;
-        }
-
-        on ApplyPedestriansForCrossGreen do {
-            // Transversal verde: pedestres que cruzam o corredor principal podem andar.
-            send i1PedAcrossMainNorth, Walk;
-            send i1PedAcrossMainSouth, Walk;
             send i1PedAcrossCrossEast, DontWalk;
             send i1PedAcrossCrossWest, DontWalk;
 
-            send i2PedAcrossMainNorth, Walk;
-            send i2PedAcrossMainSouth, Walk;
+            send i2PedAcrossMainNorth, DontWalk;
+            send i2PedAcrossMainSouth, DontWalk;
             send i2PedAcrossCrossEast, DontWalk;
             send i2PedAcrossCrossWest, DontWalk;
+
+            // ======================================================
+            // SAÍDA PARA ANIMADOR C++
+            // ======================================================
+            announce("TurnRedI1Main:1:" + to_string(simulation_time));
+            announce("TurnRedI1Cross:1:" + to_string(simulation_time));
+            announce("TurnRedI2Main:2:" + to_string(simulation_time));
+            announce("TurnRedI2Cross:2:" + to_string(simulation_time));
+            announce("DontWalk:1:" + to_string(simulation_time));
+            announce("DontWalk:2:" + to_string(simulation_time));
+        }
+
+        on ApplyPedestriansForMainGreen do {
+            send i1PedAcrossMainNorth, DontWalk;
+            send i1PedAcrossMainSouth, DontWalk;
+            send i2PedAcrossMainNorth, DontWalk;
+            send i2PedAcrossMainSouth, DontWalk;
+
+            announce("DontWalk:1:" + to_string(simulation_time) + ":MainGreenActive");
+            announce("DontWalk:2:" + to_string(simulation_time) + ":MainGreenActive");
+        }
+
+        on ApplyPedestriansForCrossGreen do {
+            send i1PedAcrossCrossEast, Walk;
+            send i1PedAcrossCrossWest, Walk;
+            send i2PedAcrossCrossEast, Walk;
+            send i2PedAcrossCrossWest, Walk;
+
+            announce("Walk:1:" + to_string(simulation_time) + ":CrossGreenActive");
+            announce("Walk:2:" + to_string(simulation_time) + ":CrossGreenActive");
         }
 
         on ApplyAllPedestriansWalk do {
@@ -562,6 +598,9 @@ machine Controller {
             send i2PedAcrossMainSouth, Walk;
             send i2PedAcrossCrossEast, Walk;
             send i2PedAcrossCrossWest, Walk;
+
+            announce("Walk:1:" + to_string(simulation_time) + ":AllPedestriansWalk");
+            announce("Walk:2:" + to_string(simulation_time) + ":AllPedestriansWalk");
         }
 
         on ApplyAllPedestriansStop do {
@@ -574,231 +613,135 @@ machine Controller {
             send i2PedAcrossMainSouth, DontWalk;
             send i2PedAcrossCrossEast, DontWalk;
             send i2PedAcrossCrossWest, DontWalk;
-        }
 
-        on ApplyTurnPolicyForbidden do {
-            rtAAllowed = false;
-            rtBAllowed = false;
-            ltAAllowed = false;
-            ltBAllowed = false;
-
-            send sign, ForbidTurns06To22;
-            send sign, UpdateSign;
-            send sign, Speed50;
+            announce("DontWalk:1:" + to_string(simulation_time) + ":AllPedestriansStop");
+            announce("DontWalk:2:" + to_string(simulation_time) + ":AllPedestriansStop");
         }
 
         on ApplyTurnPolicyAllowed do {
             rtAAllowed = true;
-            rtBAllowed = true;
             ltAAllowed = true;
+            rtBAllowed = true;
             ltBAllowed = true;
 
             send sign, AllowTurns22To0559;
-            send sign, UpdateSign;
-            send sign, Speed50;
+
+            announce("AllowRightTurnA:1:" + to_string(simulation_time));
+            announce("AllowLeftTurnA:1:" + to_string(simulation_time));
         }
 
-        on Timeout do {
-            if (!accidentOpen) {
-                if (phase == 0) {
-                    send this, ApplyAllRed;
-                } else if (phase == 1) {
-                    send this, ApplyCrossGreen;
-                } else if (phase == 2) {
-                    send this, ApplyAllRed;
-                } else {
-                    send this, ApplyMainGreen;
-                }
-            }
-        }
+        on ApplyTurnPolicyForbidden do {
+            rtAAllowed = false;
+            ltAAllowed = false;
+            rtBAllowed = false;
+            ltBAllowed = false;
 
-        on SyncPhase do {
-            send this, ApplyTurnPolicyForbidden;
-            send this, ApplyMainGreen;
+            send sign, ForbidTurns06To22;
+
+            announce("ForbidRightTurnA:1:" + to_string(simulation_time));
+            announce("ForbidLeftTurnA:1:" + to_string(simulation_time));
         }
 
         on HighTraffic do {
-            queueMain = queueMain + 10;
-            send this, SyncPhase;
+            announce("HighTraffic:1:" + to_string(simulation_time) + ":VehicleQueueHigh");
         }
 
         on MediumTraffic do {
-            queueCross = queueCross + 5;
-            send this, ApplyCrossGreen;
+            announce("MediumTraffic:1:" + to_string(simulation_time) + ":VehicleQueueMedium");
         }
 
         on LowTraffic do {
-            if (queueMain > 0) {
-                queueMain = queueMain - 1;
-            }
-
-            if (queueCross > 0) {
-                queueCross = queueCross - 1;
-            }
-
-            send this, ApplyAllRed;
-        }
-
-        on PeakHour do {
-            // 06h00 ate 22h00: placa proibe direita e esquerda.
-            send this, ApplyTurnPolicyForbidden;
-            send this, ApplyMainGreen;
-        }
-
-        on NormalHour do {
-            // 06h00 ate 22h00: placa continua proibindo conversoes.
-            send this, ApplyTurnPolicyForbidden;
-
-            if ($) {
-                send this, ApplyMainGreen;
-            } else {
-                send this, ApplyCrossGreen;
-            }
-        }
-
-        on NightHour do {
-            // Fluxo baixo de noite: conversoes liberadas e intersecao em seguranca.
-            send this, ApplyTurnPolicyAllowed;
-            send this, ApplyAllRed;
-        }
-
-        on DawnPeriod do {
-            // 22h01 ate 05h59: placa libera direita e esquerda.
-            send this, ApplyTurnPolicyAllowed;
-            send this, ApplyMainGreen;
+            announce("LowTraffic:1:" + to_string(simulation_time) + ":VehicleQueueLow");
         }
 
         on PedestrianRequest do {
-            send this, ApplyAllRed;
-            send this, ApplyAllPedestriansWalk;
-            send this, ApplyAllPedestriansStop;
+            announce("PedestrianRequest:1:" + to_string(simulation_time) + ":ButtonPressed");
         }
 
         on BusDetected do {
-            // Onibus usa o corredor principal sincronizado.
-            send this, SyncPhase;
-        }
-
-        on TrafficAccident do {
-            if (!accidentOpen) {
-                accidentOpen = true;
-                pedestrianAlreadyRescued = false;
-
-                if ($) {
-                    accidentIntersection = 1;
-                } else {
-                    accidentIntersection = 2;
-                }
-
-                announce TrafficAccident;
-
-                send this, ApplyAllRed;
-                send this, ApplyAllPedestriansStop;
-
-                announce AmbulanceDispatched;
-                announce PoliceDispatched;
-                announce FirefightersDispatched;
-
-                send ambulance, DispatchAmbulance;
-                send police, DispatchPolice;
-                send firefighters, DispatchFirefighters;
-
-                raise PedestrianRescued;
-            }
-        }
-
-        on PedestrianRescued do {
-            if (accidentOpen) {
-                pedestrianAlreadyRescued = true;
-                announce PedestrianRescued;
-
-                send ambulance, PedestrianRescued;
-                send police, SceneSecured;
-                send firefighters, SceneSecured;
-
-                raise AccidentResolved;
-            }
-        }
-
-        on AccidentResolved do {
-            if (accidentOpen && pedestrianAlreadyRescued) {
-                announce AccidentResolved;
-
-                accidentOpen = false;
-                pedestrianAlreadyRescued = false;
-                accidentIntersection = 0;
-
-                send ambulance, StandDown;
-                send police, StandDown;
-                send firefighters, StandDown;
-
-                send this, SyncPhase;
-            }
+            announce("BusDetected:1:" + to_string(simulation_time) + ":PriorityBus");
         }
 
         on SirenDetected do {
             sirenOn = true;
-
-            if (beaconOn) {
-                raise AuthorizedEmergency;
-            }
+            announce("SirenDetected:1:" + to_string(simulation_time) + ":EmergencySiren");
         }
 
         on BeaconDetected do {
             beaconOn = true;
-
-            if (sirenOn) {
-                raise AuthorizedEmergency;
-            }
+            announce("BeaconDetected:1:" + to_string(simulation_time) + ":EmergencyBeacon");
         }
 
         on AuthorizedEmergency do {
-            send this, ApplyAllPedestriansStop;
-            send this, ApplyMainGreen;
+            raise ApplyAllRed;
+            raise ApplyAllPedestriansStop;
 
+            send ambulance, DispatchAmbulance;
+            send police, DispatchPolice;
+            send firefighters, DispatchFirefighters;
+
+            accidentOpen = true;
+            pedestrianAlreadyRescued = false;
+
+            announce("AmbulanceDispatched:1:" + to_string(simulation_time) + ":Emergency");
+            announce("PoliceDispatched:1:" + to_string(simulation_time) + ":Emergency");
+            announce("FirefightersDispatched:1:" + to_string(simulation_time) + ":Emergency");
+        }
+
+        on TrafficAccident do {
+            announce("TrafficAccident:1:" + to_string(simulation_time) + ":AccidentDetected");
+        }
+
+        on PedestrianRescued do {
+            pedestrianAlreadyRescued = true;
+
+            announce("PedestrianRescued:1:" + to_string(simulation_time) + ":RescueSuccess");
+        }
+
+        on AccidentResolved do {
+            accidentOpen = false;
             sirenOn = false;
             beaconOn = false;
+
+            send ambulance, StandDown;
+            send police, StandDown;
+            send firefighters, StandDown;
+
+            announce("AccidentResolved:1:" + to_string(simulation_time) + ":SceneCleared");
+            announce("StandDown:1:" + to_string(simulation_time) + ":EmergencyOver");
         }
 
-        on AllowRightTurnA do {
-            rtAAllowed = true;
+        on Tick do {
+            // Incrementar tempo de simulação
+            simulation_time = simulation_time + 100;
+            raise Tick;
         }
 
-        on ForbidRightTurnA do {
-            rtAAllowed = false;
+        on PeakHour do {
+            announce("PeakHour:0:" + to_string(simulation_time) + ":TrafficPeakHours");
         }
 
-        on AllowRightTurnB do {
-            rtBAllowed = true;
+        on NormalHour do {
+            announce("NormalHour:0:" + to_string(simulation_time) + ":TrafficNormalHours");
         }
 
-        on ForbidRightTurnB do {
-            rtBAllowed = false;
+        on NightHour do {
+            announce("NightHour:0:" + to_string(simulation_time) + ":TrafficNightHours");
         }
 
-        on AllowLeftTurnA do {
-            ltAAllowed = true;
+        on DawnPeriod do {
+            announce("DawnPeriod:0:" + to_string(simulation_time) + ":TrafficDawnPeriod");
         }
 
-        on ForbidLeftTurnA do {
-            ltAAllowed = false;
-        }
-
-        on AllowLeftTurnB do {
-            ltBAllowed = true;
-        }
-
-        on ForbidLeftTurnB do {
-            ltBAllowed = false;
+        on SyncPhase do {
+            // Sincronizar fases dos cruzamentos para onda verde
+            announce("SyncPhase:0:" + to_string(simulation_time) + ":GreenWaveSync");
+            raise ApplyMainGreen;
         }
     }
 }
 
-// ======================================================
-// OBSERVADORES
-// ======================================================
-
-spec SafetyObserver observes
+spec TrafficLightObserver observes
     I1MainGreen, I1MainRed, I1CrossGreen, I1CrossRed,
     I2MainGreen, I2MainRed, I2CrossGreen, I2CrossRed {
 
@@ -937,6 +880,9 @@ machine Main {
 
     start state Init {
         entry {
+            // Enviar evento de inicialização para C++
+            announce("Start:0:0:SystemInitialization");
+
             ctrl = new Controller();
 
             send ctrl, SyncPhase;
@@ -958,10 +904,12 @@ machine Main {
 machine ClockEnvironment {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -973,6 +921,8 @@ machine ClockEnvironment {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 send controller, PeakHour;
             } else if ($) {
@@ -999,10 +949,12 @@ machine ClockEnvironment {
 machine VehicleSensor {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -1014,6 +966,8 @@ machine VehicleSensor {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 if ($) {
                     send controller, HighTraffic;
@@ -1040,10 +994,12 @@ machine VehicleSensor {
 machine PedestrianSensor {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -1055,6 +1011,8 @@ machine PedestrianSensor {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 send controller, PedestrianRequest;
             }
@@ -1075,10 +1033,12 @@ machine PedestrianSensor {
 machine EmergencySensor {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -1090,6 +1050,8 @@ machine EmergencySensor {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 send controller, SirenDetected;
             }
@@ -1114,10 +1076,12 @@ machine EmergencySensor {
 machine BusSensor {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -1129,6 +1093,8 @@ machine BusSensor {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 send controller, BusDetected;
             }
@@ -1149,10 +1115,12 @@ machine BusSensor {
 machine AccidentSensor {
     var controller : machine;
     var counter : int;
+    var sim_time : int;
 
     start state Init {
         entry(ctrl : machine) {
             controller = ctrl;
+            sim_time = 0;
             goto Running;
         }
     }
@@ -1164,6 +1132,8 @@ machine AccidentSensor {
         }
 
         on Tick do {
+            sim_time = sim_time + 100;
+
             if ($) {
                 send controller, TrafficAccident;
             }
