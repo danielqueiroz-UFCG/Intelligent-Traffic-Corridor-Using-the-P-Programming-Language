@@ -1,63 +1,209 @@
+//============================================================
+// Intersection.p
+//============================================================
+
 machine Intersection
 {
-    var mainRoad: machine;
-    var crossRoad: machine;
 
-    var northPed: machine;
-    var southPed: machine;
-    var eastPed: machine;
-    var westPed: machine;
+    var id:int;
+
+    // Semáforos veiculares
+    var northVehicle:machine;
+    var southVehicle:machine;
+    var eastVehicle:machine;
+    var westVehicle:machine;
+
+    // Semáforos de pedestres
+    var northPedestrian:machine;
+    var southPedestrian:machine;
+    var eastPedestrian:machine;
+    var westPedestrian:machine;
+
+    var emergency:bool;
+    var busPriority:bool;
+
+    //--------------------------------------------------------
 
     start state Init
     {
+
+        entry(payload:int)
+        {
+
+            id = payload;
+
+            emergency = false;
+            busPriority = false;
+
+            northVehicle = new VehicleLight();
+            southVehicle = new VehicleLight();
+
+            eastVehicle = new VehicleLight();
+            westVehicle = new VehicleLight();
+
+            northPedestrian = new PedestrianLight();
+            southPedestrian = new PedestrianLight();
+
+            eastPedestrian = new PedestrianLight();
+            westPedestrian = new PedestrianLight();
+
+            goto MainRoadGreen;
+
+        }
+
+    }
+
+    //--------------------------------------------------------
+
+    state MainRoadGreen
+    {
+
         entry
         {
-            mainRoad = new VehicleLight();
-            crossRoad = new VehicleLight();
 
-            northPed = new PedestrianLight();
-            southPed = new PedestrianLight();
-            eastPed = new PedestrianLight();
-            westPed = new PedestrianLight();
+            send eastVehicle, MainGreen;
+            send westVehicle, MainGreen;
 
-            goto Normal;
+            send northVehicle, MainRed;
+            send southVehicle, MainRed;
+
+            send northPedestrian, Walk;
+            send southPedestrian, Walk;
+
+            send eastPedestrian, DontWalk;
+            send westPedestrian, DontWalk;
+
+            print format("Intersection {0}: MAIN GREEN", id);
+
         }
+
+        on PhaseFinished goto MainRoadYellow;
+
+        on EmergencyStart goto EmergencyMode;
+
     }
 
-    state Normal
+    //--------------------------------------------------------
+
+    state MainRoadYellow
     {
-        on MainGreen do
-        {
-            send mainRoad, MainGreen;
-            send crossRoad, CrossRed;
 
-            send northPed, DontWalk;
-            send southPed, DontWalk;
-            send eastPed, Walk;
-            send westPed, Walk;
+        entry
+        {
+
+            send eastVehicle, MainYellow;
+            send westVehicle, MainYellow;
+
+            print format("Intersection {0}: MAIN YELLOW", id);
+
         }
 
-        on CrossGreen do
-        {
-            send crossRoad, CrossGreen;
-            send mainRoad, MainRed;
+        on PhaseFinished goto CrossRoadGreen;
 
-            send northPed, Walk;
-            send southPed, Walk;
-            send eastPed, DontWalk;
-            send westPed, DontWalk;
-        }
+        on EmergencyStart goto EmergencyMode;
 
-        on Emergency goto EmergencyMode;
     }
+
+    //--------------------------------------------------------
+
+    state CrossRoadGreen
+    {
+
+        entry
+        {
+
+            send eastVehicle, MainRed;
+            send westVehicle, MainRed;
+
+            send northVehicle, CrossGreen;
+            send southVehicle, CrossGreen;
+
+            send eastPedestrian, Walk;
+            send westPedestrian, Walk;
+
+            send northPedestrian, DontWalk;
+            send southPedestrian, DontWalk;
+
+            print format("Intersection {0}: CROSS GREEN", id);
+
+        }
+
+        on PhaseFinished goto CrossRoadYellow;
+
+        on EmergencyStart goto EmergencyMode;
+
+    }
+
+    //--------------------------------------------------------
+
+    state CrossRoadYellow
+    {
+
+        entry
+        {
+
+            send northVehicle, CrossYellow;
+            send southVehicle, CrossYellow;
+
+            print format("Intersection {0}: CROSS YELLOW", id);
+
+        }
+
+        on PhaseFinished goto MainRoadGreen;
+
+        on EmergencyStart goto EmergencyMode;
+
+    }
+
+    //--------------------------------------------------------
 
     state EmergencyMode
     {
+
         entry
         {
-            print "Emergency";
+
+            emergency = true;
+
+            print format("Intersection {0}: EMERGENCY", id);
+
         }
 
-        on EmergencyEnd goto Normal;
+        on AmbulanceDetected do
+        {
+
+            send northVehicle, MainRed;
+            send southVehicle, MainRed;
+
+            send eastVehicle, MainGreen;
+            send westVehicle, MainGreen;
+
+        }
+
+        on PoliceDetected do
+        {
+
+            send northVehicle, CrossGreen;
+            send southVehicle, CrossGreen;
+
+            send eastVehicle, MainRed;
+            send westVehicle, MainRed;
+
+        }
+
+        on FireTruckDetected do
+        {
+
+            send northVehicle, CrossGreen;
+            send southVehicle, CrossGreen;
+
+            send eastVehicle, MainRed;
+            send westVehicle, MainRed;
+
+        }
+
+        on EmergencyEnd goto MainRoadGreen;
+
     }
+
 }
