@@ -1,13 +1,19 @@
+//=====================================================
+// VehicleLight.p
+//=====================================================
+
 machine VehicleLight
 {
-    var state: LightState;
+
+    var color: LightColor;
 
     start state Red
     {
+
         entry
         {
-            state = RED;
-            print "RED";
+            color = RED;
+            print "Vehicle RED";
         }
 
         on MainGreen goto Green;
@@ -16,10 +22,11 @@ machine VehicleLight
 
     state Green
     {
+
         entry
         {
-            state = GREEN;
-            print "GREEN";
+            color = GREEN;
+            print "Vehicle GREEN";
         }
 
         on MainYellow goto Yellow;
@@ -28,13 +35,15 @@ machine VehicleLight
 
     state Yellow
     {
+
         entry
         {
-            state = YELLOW;
-            print "YELLOW";
+            color = YELLOW;
+            print "Vehicle YELLOW";
         }
 
         on MainRed goto Red;
         on CrossRed goto Red;
     }
+
 }
