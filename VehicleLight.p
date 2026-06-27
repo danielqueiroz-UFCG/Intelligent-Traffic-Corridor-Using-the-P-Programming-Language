@@ -282,5 +282,129 @@ machine VehicleLight
         }
     }
 
-    //-------------------------------------------------
-    // Estado MAINTENANCE (Manutenção de Campo Local)
+   //-----------------------------------------------------
+// 3. Máquina Auxiliar: PedestrianController
+//-----------------------------------------------------
+machine PedestrianController
+{
+    var pedestrianState: PedestrianState;
+    var associatedIntersection: IntersectionId;
+    var accumulatedRequests: int;
+
+    start state Init
+    {
+        entry
+        {
+            pedestrianState = PED_STATE_NO_PEDESTRIANS;
+            accumulatedRequests = 0;
+            goto Idle;
+        }
+    }
+
+    state Idle
+    {
+        entry
+        {
+            print "PED_LOG: Módulo de pedestres aguardando chamada.";
+        }
+
+        on PedestrianButtonPressed do {
+            btn: PedestrianButtonId ->
+            accumulatedRequests = accumulatedRequests + 1;
+            print "PED_LOG: Registro de pedestre recebido.";
+            goto ActiveCrossing;
+        };
+        
+        on HardwareFailureDetected goto PedestrianFailMode;
+    }
+
+    state ActiveCrossing
+    {
+        entry
+        {
+            pedestrianState = PED_STATE_CROSSING_START;
+            print "PED_LOG: Sinal de Caminhar (WALK) ATIVADO para pedestres.";
+        }
+
+        on WatchdogTick do {
+            print "PED_LOG: Contagem regressiva de segurança para travessia em andamento.";
+        };
+
+        on MainRed do {
+            print "PED_LOG: Sincronismo com semáforo principal confirmado.";
+        };
+
+        on SwitchToNightMode goto Idle;
+
+        exit
+        {
+            pedestrianState = PED_STATE_NO_PEDESTRIANS;
+            accumulatedRequests = 0;
+            print "PED_LOG: Sinal de Não Caminhar (DONT WALK) ATIVADO.";
+        }
+    }
+
+    state PedestrianFailMode
+    {
+        entry
+        {
+            print "PED_CRITICAL: Módulo de pedestre desativado por falha no display de contagem.";
+        }
+        on HardwareCleared goto Init;
+    }
+}
+
+//-----------------------------------------------------
+// 4. Máquina Coordenadora: IntersectionMaster
+//-----------------------------------------------------
+machine IntersectionMaster
+{
+    var clusterRole: NetworkTopologyRole;
+    var activePlan: CycleTimingPlan;
+    var monitoredSensors: seq[SensorId];
+    var networkJitter: int;
+
+    start state InitializeMaster
+    {
+        entry
+        {
+            clusterRole = ROLE_CLUSTER_MASTER;
+            networkJitter = 0;
+            print "MASTER_LOG: Coordenador de Malha Urbana Ativo.";
+            goto CoordinateNormalTraffic;
+        }
+    }
+
+    state CoordinateNormalTraffic
+    {
+        entry
+        {
+            print "MASTER_LOG: Emitindo plano de tempo adaptativo para nós locais.";
+        }
+
+        on SynchronizationSignal do {
+            token: SynchronizationToken ->
+            networkJitter = token.networkJitterCompensation;
+            print "MASTER_LOG: Relógio sincronizado via Token de rede global.";
+        };
+
+        on EmergencyApproaching do {
+            req: EmergencyRequest ->
+            print "MASTER_LOG: ALERTA CRÍTICO: Roteando onda verde para veículo de emergência.";
+        };
+
+        on HardwareFailureDetected goto EmergencyClusterFallback;
+    }
+
+    state EmergencyClusterFallback
+    {
+        entry
+        {
+            print "MASTER_CRITICAL: Falha na coordenação de malha! Ordenando modo autônomo local.";
+        }
+        
+        on HardwareCleared goto InitializeMaster;
+    }
+}
+
+
