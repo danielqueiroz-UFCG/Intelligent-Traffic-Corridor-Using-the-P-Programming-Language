@@ -311,3 +311,348 @@ machine TrafficController
         on NightMode goto Night;
 
     }
+
+        ///////////////////////////////////////////////////////////
+    // BUS PRIORITY
+    ///////////////////////////////////////////////////////////
+
+    state BusPriority
+    {
+
+        entry
+        {
+
+            print "===================================";
+            print "BUS PRIORITY MODE";
+            print "===================================";
+
+            busPriority = true;
+
+            busCounter = busCounter + 1;
+
+            cycleCounter = 0;
+
+            if(phase == 0)
+            {
+
+                send I1, MainGreen;
+                send I2, MainGreen;
+
+            }
+            else
+            {
+
+                send I1, CrossGreen;
+                send I2, CrossGreen;
+
+            }
+
+        }
+
+        on Tick do
+        {
+
+            cycleCounter = cycleCounter + 1;
+
+            totalTicks = totalTicks + 1;
+
+            if(cycleCounter >= 10)
+            {
+
+                send this, BusPriorityFinished;
+
+            }
+
+        }
+
+        on BusPriorityFinished do
+        {
+
+            busPriority = false;
+
+            cycleCounter = 0;
+
+            goto Running;
+
+        }
+
+        on EmergencyStart goto Emergency;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // EMERGENCY MODE
+    ///////////////////////////////////////////////////////////
+
+    state Emergency
+    {
+
+        entry
+        {
+
+            print "===================================";
+            print "EMERGENCY MODE";
+            print "===================================";
+
+            emergencyMode = true;
+
+            emergencyCounter = emergencyCounter + 1;
+
+            cycleCounter = 0;
+
+            if(ambulanceDetected)
+            {
+
+                print "Ambulance Priority";
+
+                send I1, MainGreen;
+                send I2, MainGreen;
+
+            }
+
+            if(policeDetected)
+            {
+
+                print "Police Priority";
+
+                send I1, CrossGreen;
+                send I2, CrossGreen;
+
+            }
+
+            if(firefighterDetected)
+            {
+
+                print "Firefighters Priority";
+
+                send I1, CrossGreen;
+                send I2, CrossGreen;
+
+            }
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter >= 20)
+            {
+
+                send this, EmergencyFinished;
+
+            }
+
+        }
+
+        on EmergencyFinished do
+        {
+
+            emergencyMode = false;
+
+            ambulanceDetected = false;
+
+            policeDetected = false;
+
+            firefighterDetected = false;
+
+            cycleCounter = 0;
+
+            goto Running;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // NIGHT MODE
+    ///////////////////////////////////////////////////////////
+
+    state Night
+    {
+
+        entry
+        {
+
+            print "===================================";
+            print "NIGHT MODE";
+            print "===================================";
+
+            nightMode = true;
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter % 2 == 0)
+            {
+
+                send I1, MainYellow;
+
+                send I2, MainYellow;
+
+            }
+            else
+            {
+
+                send I1, MainRed;
+
+                send I2, MainRed;
+
+            }
+
+        }
+
+        on DayMode do
+        {
+
+            nightMode = false;
+
+            goto Running;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // MAINTENANCE MODE
+    ///////////////////////////////////////////////////////////
+
+    state Maintenance
+    {
+
+        entry
+        {
+
+            maintenanceMode = true;
+
+            print "Maintenance Mode";
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+        }
+
+        on Resume do
+        {
+
+            maintenanceMode = false;
+
+            goto Running;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // GREEN WAVE
+    ///////////////////////////////////////////////////////////
+
+    state GreenWave
+    {
+
+        entry
+        {
+
+            print "Green Wave Enabled";
+
+            greenWaveEnabled = true;
+
+            cycleCounter = 0;
+
+        }
+
+        on Tick do
+        {
+
+            totalTicks = totalTicks + 1;
+
+            cycleCounter = cycleCounter + 1;
+
+            if(cycleCounter == 5)
+            {
+
+                send I1, MainGreen;
+
+            }
+
+            if(cycleCounter == 10)
+            {
+
+                send I2, MainGreen;
+
+            }
+
+            if(cycleCounter >= 30)
+            {
+
+                cycleCounter = 0;
+
+            }
+
+        }
+
+        on DisableGreenWave do
+        {
+
+            greenWaveEnabled = false;
+
+            goto Running;
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // SENSOR EVENTS
+    ///////////////////////////////////////////////////////////
+
+    on NorthVehicleDetected do
+    {
+
+        northVehicles = northVehicles + 1;
+
+        northQueue = northQueue + 1;
+
+    }
+
+    on SouthVehicleDetected do
+    {
+
+        southVehicles = southVehicles + 1;
+
+        southQueue = southQueue + 1;
+
+    }
+
+    on EastVehicleDetected do
+    {
+
+        eastVehicles = eastVehicles + 1;
+
+        eastQueue = eastQueue + 1;
+
+    }
+
+    on WestVehicleDetected do
+    {
+
+        westVehicles = westVehicles + 1;
+
+        westQueue = westQueue + 1;
+
+    }
